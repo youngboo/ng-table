@@ -14,7 +14,9 @@
  */
 app.value('ngTableDefaults', {
     params: {},
-    settings: {}
+    settings: {
+        interceptors: []
+    }
 });
 
 (function(){
@@ -521,9 +523,7 @@ app.factory('NgTableParams', ['$q', '$log', 'ngTableDefaults', 'ngTableGetDataBc
             var interceptors = settings.interceptors || [];
             return interceptors.reduce(function(result, interceptor){
                 return result.then(function(data){
-                    return $q.when(interceptor.response(data, self)).then(function(){
-                        return data;
-                    })
+                    return $q.when(interceptor.response(data, self));
                 });
             }, dataFetched);
         }
@@ -546,6 +546,7 @@ app.factory('NgTableParams', ['$q', '$log', 'ngTableDefaults', 'ngTableGetDataBc
             defaultSort: 'desc',
             filterDelay: 750,
             counts: [10, 25, 50, 100],
+            interceptors: [],
             paginationMaxBlocks: 11,
             paginationMinBlocks: 5,
             sortingIndicator: 'span',
