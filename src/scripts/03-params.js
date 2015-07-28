@@ -480,6 +480,7 @@ app.factory('NgTableParams', ['$q', '$log', 'ngTableDefaults', 'ngTableGetDataBc
             } else {
                 pData = runGetData();
             }
+            pData = runInterceptorPipeline(pData);
 
             log('ngTable: reload data');
 
@@ -514,6 +515,17 @@ app.factory('NgTableParams', ['$q', '$log', 'ngTableDefaults', 'ngTableGetDataBc
         function runGetGroups(){
             var getGroupsFn = settings.getGroupsFnAdaptor(settings.getGroups);
             return $q.when(getGroupsFn.call(settings, settings.groupBy, self));
+        }
+
+        function runInterceptorPipeline(dataFetched){
+            var interceptors = settings.interceptors || [];
+            return interceptors.reduce(function(result, interceptor){
+                return result.then(function(data){
+                    return $q.when(interceptor.response(data, self)).then(function(){
+                        return data;
+                    })
+                });
+            }, dataFetched);
         }
 
         var params = this.$params = {

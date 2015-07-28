@@ -436,4 +436,55 @@ describe('NgTableParams', function () {
             }
         });
     });
+
+    describe('interceptors', function(){
+
+        var $scope;
+        beforeEach(inject(function($rootScope){
+            $scope = $rootScope.$new();
+        }));
+
+        function getData(/*$defer, params*/){
+            return [];
+        }
+
+        function createNgTable(settings){
+            settings = angular.extend({}, { $scope: $scope, getData: getData, filterDelay: 0 }, settings);
+            return new NgTableParams({}, settings);
+        }
+
+        it('can register interceptor that hooks responses', function(){
+            var interceptor = {
+                response: function(/*data, params*/){
+                    this.hasRun = true;
+                }
+            };
+            var params = createNgTable({ interceptors: [interceptor]});
+            expect(params.settings().interceptors).toBeDefined();
+            expect(params.settings().interceptors.length).toBe(1);
+        });
+
+        describe('one response interceptor', function(){
+
+            it('should receive response from call to getData', function(){
+                // given
+                var interceptor = {
+                    response: function(/*data, params*/){
+                        this.hasRun = true;
+                    }
+                };
+                var params = createNgTable({ interceptors: [interceptor]});
+                expect(params.settings().interceptors).toBeDefined();
+                expect(params.settings().interceptors.length).toBe(1);
+
+                // when
+                var dataFetched = params.reload();
+                $scope.$digest();
+
+                // then
+                expect(interceptor.hasRun).toBeTruthy();
+            });
+        });
+
+    });
 });
