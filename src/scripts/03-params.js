@@ -601,3 +601,78 @@ app.factory('ngTableParams', ['NgTableParams', function(NgTableParams) {
         }
     }
 })();
+
+
+(function(){
+    'use strict';
+
+
+    angular.module('ngTable')
+        .provider('ngTableDefaultGetData', ngTableDefaultGetDataProvider);
+
+    ngTableDefaultGetDataProvider.$inject = [];
+
+    /**
+     * @ngdoc provider
+     * @name ngTableDefaultGetDataProvider
+     * @description Allows for the configuration of the {@link ngTable.ngTableDefaultGetData ngTableDefaultGetData}
+     * service.
+     *
+     * Set filterServiceName to the name of a custom service that knows how to take a `filter` from `NgTableParams`
+     * and filter an array of data.
+     *
+     * Set sortingServiceName to the name of a custom service that knows how to take the `orderBy` from `NgTableParams`
+     * and sort an array of data.
+     *
+     * Out of the box the `ngTableDefaultGetData` service will be configured to use the `ng.$filter` service for
+     * both filtering and sorting
+     */
+    function ngTableDefaultGetDataProvider(){
+        var provider = this;
+        provider.$get = ngTableDefaultGetData;
+        provider.filterServiceName = '$filter';
+        provider.sortingServiceName = '$filter';
+
+        ///////////
+
+        ngTableDefaultGetData.$inject = ['$injector'];
+
+        /**
+         * @ngdoc service
+         * @name ngTableDefaultGetData
+         * @description A default implementation of the getData function that will apply the `filter`, `orderBy` and
+         * paging values from the `NgTableParams` instance supplied to the data array supplied.
+         *
+         * The outcome will be to return the resulting array and to assign the total item count after filtering
+         * to the `total` of the `NgTableParams` instance supplied
+         */
+        function ngTableDefaultGetData($injector) {
+
+            var filterService = $injector.get(provider.filterServiceName);
+            var sortingService = $injector.get(provider.sortingServiceName);
+
+            // adapt the interface of the $filter service to one more easily replaced by custom implementations
+            if (provider.filterServiceName === '$filter') {
+                filterService = filterService('filter');
+            }
+            if (provider.sortingServiceName === '$filter') {
+                sortingService = sortingService('orderBy');
+            }
+
+            return getData;
+
+            function getData(data, params) {
+                if (data == null){
+                    return [];
+                }
+
+                var filteredData = params.hasFilter() ? filterService(data, params.filter()) : data;
+                var ordering = params.orderBy();
+                var orderedData = ordering.length ? sortingService(filteredData, params.orderBy()) : filteredData;
+                var pagedData = orderedData.slice((params.page() - 1) * params.count(), params.page() * params.count());
+                params.total(orderedData.length); // set total for recalc pagination
+                return pagedData;
+            }
+        }
+    }
+})();
