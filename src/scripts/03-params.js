@@ -104,7 +104,7 @@ app.value('ngTableDefaults', {
  * @description Parameters manager for ngTable
  */
 
-app.factory('NgTableParams', ['$q', '$log', 'ngTableDefaults', 'ngTableGetDataBcShim', function($q, $log, ngTableDefaults, ngTableGetDataBcShim) {
+app.factory('NgTableParams', ['$q', '$log', 'ngTableDefaults', 'ngTableGetDataBcShim', 'ngTableDefaultGetData', function($q, $log, ngTableDefaults, ngTableGetDataBcShim, ngTableDefaultGetData) {
     var isNumber = function(n) {
         return !isNaN(parseFloat(n)) && isFinite(n);
     };
@@ -306,11 +306,8 @@ app.factory('NgTableParams', ['$q', '$log', 'ngTableDefaults', 'ngTableGetDataBc
          * @param {Object} params New parameters
          */
         this.getData = function(params) {
-            if (angular.isArray(this.data) && angular.isObject(params)) {
-                return this.data.slice((params.page() - 1) * params.count(), params.page() * params.count());
-            } else {
-                return [];
-            }
+            // note: this === settings
+            return ngTableDefaultGetData(this.data, params);
         };
 
         /**
