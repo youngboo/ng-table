@@ -37,9 +37,7 @@ function($scope, NgTableParams, $timeout, $parse, $compile, $attrs, $element, ng
         };
     })();
 
-    function resetPage() {
-        $scope.params.$params.page = 1;
-    }
+    var pendingReload;
 
     function onParamsChange (newParams, oldParams) {
 
@@ -63,30 +61,70 @@ function($scope, NgTableParams, $timeout, $parse, $compile, $attrs, $element, ng
             return;
         }
 
-        $scope.params['$$paramsFirstTimeLoad'] = !$scope.params.hasOwnProperty('$$paramsFirstTimeLoad');
         $scope.params.settings().$scope = $scope;
 
+        // vito any pending reload in favour of the one we're going to perform below
+        pendingReload = null;
+        var currentParams = $scope.params;
+
+        var doReloadNow;
+        if (currentParams.$$paramsBootstrapping){
+            doReloadNow = function(){
+                currentParams.$$paramsBootstrapping = false;
+                currentParams.reload()
+            }
+        } else {
+            doReloadNow = currentParams.reload.bind(currentParams);
+        }
+
         if (!angular.equals(newParams.filter, oldParams.filter)) {
-            var maybeResetPage = $scope.params['$$paramsFirstTimeLoad'] ? angular.noop : resetPage;
+            var maybeResetPage;
+            if (currentParams.$$paramsBootstrapping) {
+                maybeResetPage = angular.noop;
+            } else {
+                var maybeResetPage = function resetPage() {
+                    currentParams.$params.page = 1;
+                };
+            }
             var applyFilter = function () {
+                pendingReload = null;
                 maybeResetPage();
-                $scope.params.reload();
+                doReloadNow();
             };
-            if ($scope.params.settings().filterDelay && !$scope.params['$$paramsFirstTimeLoad']) {
-                delayFilter(applyFilter, $scope.params.settings().filterDelay);
+            if (currentParams.settings().filterDelay && !currentParams.$$paramsBootstrapping) {
+                pendingReload = true;
+                delayFilter(applyFilter, currentParams.settings().filterDelay);
             } else {
                 applyFilter();
             }
         } else {
-            $scope.params.reload();
+            doReloadNow();
         }
-
     }
 
     // watch for changes to $params values (eg when a filter or page changes)
     $scope.$watch('params.$params', onParamsChange, true);
     // watch for changes to $params reference (eg when a new NgTableParams is bound to the scope)
     $scope.$watch('params.$params', onParamsChange, false);
+
+    $scope.$watch('params.settings().data', function(newData, oldData){
+        if (newData === oldData || $scope.params.settings().$loading || pendingReload) {
+            return;
+        }
+
+        // schedule our reload to occur at the end of the digest.
+        // this allows our $params watch to vito this in favour of the reload it will perform
+        pendingReload = (function(params){
+            pendingReload = null;
+            params.page(1);
+            params.reload();
+        })($scope.params);
+        $scope.$evalAsync(function(){
+            if (angular.isFunction(pendingReload)){
+                pendingReload();
+            }
+        })
+    });
 
     this.compileDirectiveTemplates = function () {
         if (!$element.hasClass('ng-table')) {
@@ -179,6 +217,7 @@ function($scope, NgTableParams, $timeout, $parse, $compile, $attrs, $element, ng
             }
             $scope.paramsModel = tableParamsGetter;
             $scope.params = params;
+            $scope.params.$$paramsBootstrapping = true;
         }), false);
 
         if ($attrs.showFilter) {
